@@ -1,0 +1,128 @@
+#!/bin/bash
+
+######################
+# VARIABLES          #
+######################
+
+COMMAND=()
+CONTAINER_ENGINE=
+ENGINE_OPTIONS=
+BINARY=
+ARGUMENTS=()
+VOLUMES=()
+ENV_VARIABLES=()
+OTHER_OPTIONS=()
+
+######################
+# CONTAINER ENGINE   #
+######################
+
+if [ "$(command -v podman)" ]; then
+  CONTAINER_ENGINE=podman
+  ENGINE_OPTIONS=--userns=keep-id
+elif [ "$(command -v docker)" ]; then
+  CONTAINER_ENGINE=docker
+else
+  echo "No supported container engine found"
+  exit 1
+fi
+
+######################
+# BINARY             #
+######################
+BINARY="$(basename "$0")"
+if [ "${BINARY}" == "icr" ]; then
+  if [ $# -lt 1 ]; then
+    echo 'ERROR: At least one argument expected'
+    exit 1
+  fi
+  BINARY="$1"
+  shift
+fi
+
+######################
+# ARGUMENTS          #
+######################
+ARGUMENTS+=("$@")
+
+######################
+# MAIN ICR FUNCTION  #
+######################
+function in-container-run() {
+  COMMAND+=("${CONTAINER_ENGINE}")
+  COMMAND+=("run")
+  COMMAND+=("--name")
+  COMMAND+=("icr")
+  COMMAND+=("--rm")
+  COMMAND+=("-it")
+  COMMAND+=("${ENGINE_OPTIONS}")
+  COMMAND+=("${OTHER_OPTIONS[@]}")
+
+  # volumes
+  for entry in "${VOLUMES[@]}"
+    do
+      COMMAND+=("-v")
+      COMMAND+=("${entry}")
+    done
+
+  # environment variables
+  for entry in "${ENV_VARIABLES[@]}"
+    do
+      COMMAND+=("-e")
+      COMMAND+=("${entry}")
+    done
+
+  COMMAND+=("${IMAGE}")
+  COMMAND+=("${BINARY}")
+  COMMAND+=("${ARGUMENTS[@]}")
+
+  # in container run
+  echo "=== [🐋 ${CONTAINER_ENGINE}] running :: ${BINARY} ${ARGUMENTS[*]}"
+
+  # Uncomment debugging
+  #echo "${COMMAND[@]}"
+  "${COMMAND[@]}"
+  exit 0
+}
+
+
+######################
+# SUPPORTED BINARIES #
+######################
+
+# ansible
+if [ "${BINARY}" == "ansible" ] ||
+   [ "${BINARY}" == "ansible-galaxy" ] ||
+   [ "${BINARY}" == "ansible-playbook" ] ||
+   [ "${BINARY}" == "ansible-runner" ] ||
+   [ "${BINARY}" == "ansible-test" ] ||
+   [ "${BINARY}" == "ansible-vault" ]; then
+  IMAGE="ghcr.io/ansible-community/community-ee-minimal"
+  VOLUMES+=("${HOME}/.ssh:/runner/.ssh:z")
+  VOLUMES+=("${HOME}/.ansible:/runner/.ansible:z")
+  VOLUMES+=("${PWD}/:/runner/:z")
+  in-container-run
+fi
+
+# antora
+if [ "${BINARY}" == "antora" ]; then
+  IMAGE="docker.io/antora/antora"
+  VOLUMES+=("${PWD}/:/antora/:z")
+  OTHER_OPTIONS+=("-u")
+  OTHER_OPTIONS+=("$(id -u)")
+  in-container-run
+fi
+
+# aws-cli
+if [ "${BINARY}" == "aws" ]; then
+  IMAGE="public.ecr.aws/aws-cli/aws-cli"
+  VOLUMES+=("${HOME}/.aws/:/root/.aws/:z")
+  VOLUMES+=("${PWD}/:/aws/:z")
+  OTHER_OPTIONS+=("-u")
+  OTHER_OPTIONS+=("$(id -u)")
+  in-container-run
+fi
+
+# not supported binary
+echo "${BINARY} is not supported yet."
+

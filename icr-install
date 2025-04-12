@@ -1,0 +1,66 @@
+#!/bin/bash
+
+######################
+# ICR                #
+######################
+
+if [ ! "$(command -v curl)" ]; then
+  echo "curl is required to install icr"
+  exit 1
+fi
+
+INSTALL_DIR="${HOME}/.local/bin"
+INSTALL_FILE="${INSTALL_DIR}/icr"
+
+TMP_DIR="$(mktemp -dt icr-XXXXXX)"
+TMP_FILE="${TMP_DIR}/icr"
+
+CP_COMMAND="$(command -v cp)"
+
+curl --proto "=https" --tlsv1.2 --fail --show-error -sL "https://raw.githubusercontent.com/pretsadev/icr/main/icr" -o "$TMP_FILE"
+chmod +x "$TMP_FILE"
+
+mkdir -p "${INSTALL_DIR}"
+${CP_COMMAND} -rf "${TMP_FILE}" "${INSTALL_FILE}"
+
+echo "icr installed at ${INSTALL_FILE}"
+
+######################
+# SYMLINKS           #
+######################
+
+# supported binaries
+BINARIES=()
+# ansible
+BINARIES+=("ansible")
+BINARIES+=("ansible-galaxy")
+BINARIES+=("ansible-playbook")
+BINARIES+=("ansible-runner")
+BINARIES+=("ansible-test")
+BINARIES+=("ansible-vault")
+# antora
+BINARIES+=("antora")
+# aws
+BINARIES+=("aws")
+
+# symlinks
+function install-symlinks() {
+  for entry in "${BINARIES[@]}"
+    do
+      ln -sfn "${INSTALL_FILE}" "${INSTALL_DIR}/${entry}"
+    done
+  echo "symlinks installed at ${INSTALL_FILE}"
+}
+
+function yes_or_no {
+    while true; do
+        read -rp "$* [y/n]: " yn
+        case $yn in
+            [Yy]*) install-symlinks; exit 0;;
+            [Nn]*) exit 0;;
+        esac
+    done
+}
+
+# install symlink
+yes_or_no "Install symlinks for all supported binaries?" && install-symlinks
