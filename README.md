@@ -2,6 +2,17 @@
 
 A small bash utility to run binaries in a container
 
+# Usage
+- Run supported binaries as arguments to `icr`
+```bash
+icr ansible --version
+```
+- Or symlink them to directly reference supported binaries
+```bash
+ln -s /path/to/icr /path/to/ansible
+/path/to/ansible -- version
+```
+
 # Install
 ```bash
 bash -c "source <(curl -s https://raw.githubusercontent.com/pretsadev/icr/main/icr-install)"
@@ -11,9 +22,9 @@ This will install `icr` into `.local/bin` under the users home directory. And as
 # Uninstall
 Remove `icr`
 ```bash
-rm ~/.local/bin/icr*
+rm ~/.local/bin/icr
 ```
-If symlinks were installed also remove them e.g.
+If symlinks were installed, also remove them e.g.
 ```bash
 rm ~/.local/bin/ansible
 ```
