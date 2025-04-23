@@ -100,7 +100,10 @@ if [ "${BINARY}" == "ansible" ] ||
   IMAGE="ghcr.io/ansible-community/community-ee-minimal"
   VOLUMES+=("${HOME}/.ssh:/runner/.ssh:z")
   VOLUMES+=("${HOME}/.ansible:/runner/.ansible:z")
-  VOLUMES+=("${PWD}/:/runner/:z")
+  VOLUMES+=("${PWD}/:/workspace/:z")
+  OTHER_OPTIONS+=("-w")
+  OTHER_OPTIONS+=("/workspace")
+  OTHER_OPTIONS+=('--passwd-entry="$USERNAME:*:$UID:$GID:$NAME:/runner:/bin/sh"')
   in-container-run
 fi
 
