@@ -6,12 +6,23 @@
 
 COMMAND=()
 CONTAINER_ENGINE=
-ENGINE_OPTIONS=
+ENGINE_OPTIONS=()
+COMMON_ENGINE_OPTIONS=()
+PODMAN_ENGINE_OPTIONS=()
+DOCKER_ENGINE_OPTIONS=()
 BINARY=
 ARGUMENTS=()
 VOLUMES=()
 ENV_VARIABLES=()
-OTHER_OPTIONS=()
+
+######################
+# CHECKS             #
+######################
+
+if [ "${PWD}" == "${HOME}" ] || [ "${PWD}" == "/" ] ; then
+  echo "icr not allowed to run on this directory"
+  exit 1
+fi
 
 ######################
 # CONTAINER ENGINE   #
@@ -19,7 +30,6 @@ OTHER_OPTIONS=()
 
 if [ "$(command -v podman)" ]; then
   CONTAINER_ENGINE=podman
-  ENGINE_OPTIONS=--userns=keep-id
 elif [ "$(command -v docker)" ]; then
   CONTAINER_ENGINE=docker
 else
@@ -49,14 +59,31 @@ ARGUMENTS+=("$@")
 # MAIN ICR FUNCTION  #
 ######################
 function in-container-run() {
+  ######################
+  # CONTAINER ENGINE   #
+  ######################
+  if [ "$(command -v podman)" ]; then
+    CONTAINER_ENGINE=podman
+    ENGINE_OPTIONS+=("${PODMAN_ENGINE_OPTIONS[@]}")
+  elif [ "$(command -v docker)" ]; then
+    CONTAINER_ENGINE=docker
+    ENGINE_OPTIONS+=("${DOCKER_ENGINE_OPTIONS[@]}")
+  else
+    echo "No supported container engine found"
+    exit 1
+  fi
+  ENGINE_OPTIONS+=("${COMMON_ENGINE_OPTIONS[@]}")
+
+  ######################
+  # COMMAND            #
+  ######################
   COMMAND+=("${CONTAINER_ENGINE}")
   COMMAND+=("run")
   COMMAND+=("--name")
   COMMAND+=("icr")
   COMMAND+=("--rm")
   COMMAND+=("-it")
-  COMMAND+=("${ENGINE_OPTIONS}")
-  COMMAND+=("${OTHER_OPTIONS[@]}")
+  COMMAND+=("${ENGINE_OPTIONS[@]}")
 
   # volumes
   for entry in "${VOLUMES[@]}"
@@ -79,8 +106,8 @@ function in-container-run() {
   # in container run
   echo "=== [🐋 ${CONTAINER_ENGINE}] running :: ${BINARY} ${ARGUMENTS[*]}"
 
-  # Uncomment debugging
-  #echo "${COMMAND[@]}"
+  # Uncomment to debug composed command
+  echo "${COMMAND[@]}"
   "${COMMAND[@]}"
   exit 0
 }
@@ -101,9 +128,14 @@ if [ "${BINARY}" == "ansible" ] ||
   VOLUMES+=("${HOME}/.ssh:/runner/.ssh:z")
   VOLUMES+=("${HOME}/.ansible:/runner/.ansible:z")
   VOLUMES+=("${PWD}/:/workspace/:z")
-  OTHER_OPTIONS+=("-w")
-  OTHER_OPTIONS+=("/workspace")
-  OTHER_OPTIONS+=('--passwd-entry="$USERNAME:*:$UID:$GID:$NAME:/runner:/bin/sh"')
+  COMMON_ENGINE_OPTIONS+=("-w")
+  COMMON_ENGINE_OPTIONS+=("/workspace")
+  # podman
+  PODMAN_ENGINE_OPTIONS+=('--userns=keep-id')
+  PODMAN_ENGINE_OPTIONS+=('--passwd-entry="$USERNAME:*:$UID:$GID:$NAME:/runner:/bin/sh"')
+  # docker
+  DOCKER_ENGINE_OPTIONS+=("-u")
+  DOCKER_ENGINE_OPTIONS+=("$(id -u)")
   in-container-run
 fi
 
@@ -111,8 +143,12 @@ fi
 if [ "${BINARY}" == "antora" ]; then
   IMAGE="docker.io/antora/antora"
   VOLUMES+=("${PWD}/:/antora/:z")
-  OTHER_OPTIONS+=("-u")
-  OTHER_OPTIONS+=("$(id -u)")
+  # podman
+  PODMAN_ENGINE_OPTIONS+=('--userns=keep-id')
+  PODMAN_ENGINE_OPTIONS+=('--passwd-entry="$USERNAME:*:$UID:$GID:$NAME:/runner:/bin/sh"')
+  # docker
+  DOCKER_ENGINE_OPTIONS+=("-u")
+  DOCKER_ENGINE_OPTIONS+=("$(id -u)")
   in-container-run
 fi
 
@@ -121,8 +157,12 @@ if [ "${BINARY}" == "aws" ]; then
   IMAGE="public.ecr.aws/aws-cli/aws-cli"
   VOLUMES+=("${HOME}/.aws/:/root/.aws/:z")
   VOLUMES+=("${PWD}/:/aws/:z")
-  OTHER_OPTIONS+=("-u")
-  OTHER_OPTIONS+=("$(id -u)")
+  # podman
+  PODMAN_ENGINE_OPTIONS+=('--userns=keep-id')
+  PODMAN_ENGINE_OPTIONS+=('--passwd-entry="$USERNAME:*:$UID:$GID:$NAME:/runner:/bin/sh"')
+  # docker
+  DOCKER_ENGINE_OPTIONS+=("-u")
+  DOCKER_ENGINE_OPTIONS+=("$(id -u)")
   in-container-run
 fi
 
