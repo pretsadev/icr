@@ -124,8 +124,14 @@ if [ "${BINARY}" == "ansible" ] ||
    [ "${BINARY}" == "ansible-runner" ] ||
    [ "${BINARY}" == "ansible-test" ] ||
    [ "${BINARY}" == "ansible-vault" ]; then
+
   IMAGE="ghcr.io/ansible-community/community-ee-minimal"
-  VOLUMES+=("${HOME}/.ssh:/runner/.ssh:z")
+
+  if [ -d "${HOME}/.ssh" ]; then
+      VOLUMES+=("${HOME}/.ssh:/runner/.ssh:z")
+  fi
+
+  mkdir -p "${HOME}/.ansible"
   VOLUMES+=("${HOME}/.ansible:/runner/.ansible:z")
   VOLUMES+=("${PWD}/:/workspace/:z")
   COMMON_ENGINE_OPTIONS+=("-w")
